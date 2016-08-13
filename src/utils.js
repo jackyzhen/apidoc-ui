@@ -1,19 +1,23 @@
+// @flow
+import type { Enum, Service } from './generated/version/ServiceType';
+
 import { browserHistory } from 'react-router';
 
-const cleanPath = (path) => path.replace(/\W/g, '');
+const cleanPath = (path: string): ?string => path.replace(/\W/g, '');
 
-const onClickHref = (href) => (event) => {
+const onClickHref = (href: string) => (event: Object): void => {
   browserHistory.push(href);
   // Stop parent nav events to be publishes - jsondoc nesting
   if (event.stopPropagation) event.stopPropagation();
 };
 
-const getType = (type) => {
+const getType = (type: string) => {
   const ex = /[\[]?([^\]]+)/i;
-  return type.match(ex)[1];
+  const matched = type.match(ex);
+  return matched && matched[1];
 };
 
-const simplifyName = (name) => {
+const simplifyName = (name: string) => {
   const splitName = name.split('.');
   const joined = splitName.map((word) =>
     word.search('v[0-9]+') > -1 ? word : word.substring(0, word.search('[A-Za-z]') + 1)
@@ -21,7 +25,8 @@ const simplifyName = (name) => {
   return `${joined.substring(0, joined.lastIndexOf('.') - 1)}${splitName[splitName.length - 1]}`;
 };
 
-const findByName = (name, values) => values.find(v => v.name === getType(name));
+const findByName = <T: {name: string}>(name: string, values: Array<T>): T =>
+  values.find(v => v.name === getType(name));
 
 const getEnumImport = (name, imports) => {
   const service = imports.find(importValue => importValue.enums.find(e => e.name === getType(name)));
@@ -34,35 +39,40 @@ const getModelImport = (name, imports) => {
 };
 /* eslint-disable no-use-before-define */
 
-const getEnum = (name, service, imports) =>
+const getEnum = (name: string, service: Service, imports: ?Array<Service>) =>
   imports && isImport(name, imports) ? getEnumImport(name, imports) : findByName(name, service.enums);
 
-const getModel = (name, service, imports) =>
+const getModel = (name: string, service: Service, imports: ?Array<Service>) =>
   imports && isImport(name, imports) ? getModelImport(name, imports) : findByName(name, service.models);
 
-const isEnum = (type, service, imports) => Boolean(getEnum(type, service, imports));
+const isEnum = (type: string, service: Service, imports: ?Array<Service>) => Boolean(getEnum(type, service, imports));
 
-const isModel = (type, service, imports) => Boolean(getModel(type, service, imports));
+const isModel = (type: string, service: Service, imports: ?Array<Service>) => Boolean(getModel(type, service, imports));
 
-const isInService = (type, service) => {
+const isInService = (type: string, service: Service) => {
   const actualType = getType(type);
-  return isModel(actualType, service) || isEnum(actualType, service);
+  if (actualType) {
+    return isModel(actualType, service) || isEnum(actualType, service);
+  } else {
+    return false;
+  }
 };
 
-const isImport = (type, imports) =>
+const isImport = (type: string, imports: Array<Service>) =>
   Boolean(imports.map((importValue) => isInService(type, importValue)).find(b => b === true));
 
 /* eslint-enable no-use-before-define */
 
-const isImportOrInService = (type, service, imports) => isInService(type, service) || isImport(type, imports);
+const isImportOrInService = (type: string, service: Service, imports: Array<Service>) =>
+  isInService(type, service) || isImport(type, imports);
 
-const isArray = (type) => type.startsWith('[');
+const isArray = (type: string) => type.startsWith('[');
 
-const getEnumExampleValue = (enumModel) => enumModel.values[0].name;
+const getEnumExampleValue = (enumModel: Enum) => enumModel.values[0].name;
 
-const isISODateTime = (type) => type === 'date-iso8601';
+const isISODateTime = (type: string) => type === 'date-iso8601';
 
-const getOperation = (type, method, path, service) => {
+const getOperation = (type: string, method: string, path: string, service: Service) => {
   const resource = service.resources.find(r => r.type === type);
   const operation = resource.operations.find((o) => (
         o.method.toLowerCase() === method && cleanPath(o.path) === path
